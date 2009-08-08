@@ -18,30 +18,32 @@ class Road
 	_cost_no_existing_road = null; ///< The cost that is added to _cost_tile if no road exists yet.
 	_cost_turn = null;             ///< The cost that is added to _cost_tile if the direction changes.
 	_cost_slope = null;            ///< The extra cost if a road tile is sloped.
-	_cost_bridge_per_tile = null;  ///< The cost per tile of a bridge.
-	_cost_tunnel_per_tile = null;  ///< The cost per tile of a tunnel.
+	_cost_bridge_per_tile = null;  ///< The cost per tile of a new bridge, this is added to _cost_tile.
+	_cost_tunnel_per_tile = null;  ///< The cost per tile of a new tunnel, this is added to _cost_tile.
 	_cost_coast = null;            ///< The extra cost for a coast tile.
 	_pathfinder = null;            ///< A reference to the used AyStar object.
-	_lowest_cost = null;           ///< min(_cost_tile, _cost_bridge_per_tile, _cost_tunnel_per_tile)
+	_max_bridge_length = null;     ///< The maximum length of a bridge that will be build.
+	_max_tunnel_length = null;     ///< The maximum length of a tunnel that will be build.
 
 	cost = null;                   ///< Used to change the costs.
 	_running = null;
 
 	constructor()
 	{
-		this._max_cost = 2000000000;
+		this._max_cost = 10000000;
 		this._cost_tile = 100;
 		this._cost_no_existing_road = 40;
 		this._cost_turn = 100;
 		this._cost_slope = 200;
-		this._cost_bridge_per_tile = 105;
-		this._cost_tunnel_per_tile = 105;
+		this._cost_bridge_per_tile = 150;
+		this._cost_tunnel_per_tile = 120;
 		this._cost_coast = 20;
+		this._max_bridge_length = 10;
+		this._max_tunnel_length = 20;
 		this._pathfinder = this._aystar_class(this._Cost, this._Estimate, this._Neighbours, this, this, this);
 
 		this.cost = this.Cost(this);
 		this._running = false;
-		this._lowest_cost = 0;
 	}
 
 	/**
@@ -75,14 +77,16 @@ class Road.Cost
 		if (this._main._running) throw("You are not allowed to change parameters of a running pathfinder.");
 
 		switch (idx) {
-			case "max_cost":         this._main._max_cost = val; break;
-			case "tile":             this._main._cost_tile = val; break;
-			case "no_existing_road": this._main._cost_no_existing_road = val; break;
-			case "turn":             this._main._cost_turn = val; break;
-			case "slope":            this._main._cost_slope = val; break;
-			case "bridge_per_tile":  this._main._cost_bridge_per_tile = val; break;
-			case "tunnel_per_tile":  this._main._cost_tunnel_per_tile = val; break;
-			case "coast":            this._main._cost_coast = val; break;
+			case "max_cost":          this._main._max_cost = val; break;
+			case "tile":              this._main._cost_tile = val; break;
+			case "no_existing_road":  this._main._cost_no_existing_road = val; break;
+			case "turn":              this._main._cost_turn = val; break;
+			case "slope":             this._main._cost_slope = val; break;
+			case "bridge_per_tile":   this._main._cost_bridge_per_tile = val; break;
+			case "tunnel_per_tile":   this._main._cost_tunnel_per_tile = val; break;
+			case "coast":             this._main._cost_coast = val; break;
+			case "max_bridge_length": this._main._max_bridge_length = val; break;
+			case "max_tunnel_length": this._main._max_tunnel_length = val; break;
 			default: throw("the index '" + idx + "' does not exist");
 		}
 
@@ -92,14 +96,16 @@ class Road.Cost
 	function _get(idx)
 	{
 		switch (idx) {
-			case "max_cost":         return this._main._max_cost;
-			case "tile":             return this._main._cost_tile;
-			case "no_existing_road": return this._main._cost_no_existing_road;
-			case "turn":             return this._main._cost_turn;
-			case "slope":            return this._main._cost_slope;
-			case "bridge_per_tile":  return this._main._cost_bridge_per_tile;
-			case "tunnel_per_tile":  return this._main._cost_tunnel_per_tile;
-			case "coast":            return this._main._cost_coast;
+			case "max_cost":          return this._main._max_cost;
+			case "tile":              return this._main._cost_tile;
+			case "no_existing_road":  return this._main._cost_no_existing_road;
+			case "turn":              return this._main._cost_turn;
+			case "slope":             return this._main._cost_slope;
+			case "bridge_per_tile":   return this._main._cost_bridge_per_tile;
+			case "tunnel_per_tile":   return this._main._cost_tunnel_per_tile;
+			case "coast":             return this._main._cost_coast;
+			case "max_bridge_length": return this._main._max_bridge_length;
+			case "max_tunnel_length": return this._main._max_tunnel_length;
 			default: throw("the index '" + idx + "' does not exist");
 		}
 	}
@@ -112,10 +118,31 @@ class Road.Cost
 
 function Road::FindPath(iterations)
 {
-	this._lowest_cost = min(min(this._cost_tile, this._cost_bridge_per_tile), this._cost_tunnel_per_tile);
+	local test_mode = AITestMode();
 	local ret = this._pathfinder.FindPath(iterations);
 	this._running = (ret == false) ? true : false;
 	return ret;
+}
+
+function Road::_GetBridgeNumSlopes(end_a, end_b)
+{
+	local slopes = 0;
+	local direction = (end_b - end_a) / AIMap.DistanceManhattan(end_a, end_b);
+	local slope = AITile.GetSlope(end_a);
+	if (!((slope == AITile.SLOPE_NE && direction == 1) || (slope == AITile.SLOPE_SE && direction == -AIMap.GetMapSizeX()) ||
+		(slope == AITile.SLOPE_SW && direction == -1) || (slope == AITile.SLOPE_NW && direction == AIMap.GetMapSizeX()) ||
+		 slope == AITile.SLOPE_N || slope == AITile.SLOPE_E || slope == AITile.SLOPE_S || slope == AITile.SLOPE_W)) {
+		slopes++;
+	}
+
+	local slope = AITile.GetSlope(end_b);
+	direction = -direction;
+	if (!((slope == AITile.SLOPE_NE && direction == 1) || (slope == AITile.SLOPE_SE && direction == -AIMap.GetMapSizeX()) ||
+		(slope == AITile.SLOPE_SW && direction == -1) || (slope == AITile.SLOPE_NW && direction == AIMap.GetMapSizeX()) ||
+		 slope == AITile.SLOPE_N || slope == AITile.SLOPE_E || slope == AITile.SLOPE_S || slope == AITile.SLOPE_W)) {
+		slopes++;
+	}
+	return slopes;
 }
 
 function Road::_Cost(path, new_node, self)
@@ -125,37 +152,52 @@ function Road::_Cost(path, new_node, self)
 
 	local prev_node = path.GetNode();
 
-	/* If the new tile is a bridge / tunnel tile, check wether we came from the other
+	/* If the new tile is a bridge / tunnel tile, check whether we came from the other
 	 * end of the bridge / tunnel or if we just entered the bridge / tunnel. */
 	if (AIBridge.IsBridgeTile(new_node)) {
 		if (AIBridge.GetOtherBridgeEnd(new_node) != prev_node) return path.GetCost() + self._cost_tile;
-		return path.GetCost() + AIMap.DistanceManhattan(new_node, prev_node) * self._cost_bridge_per_tile;
+		return path.GetCost() + AIMap.DistanceManhattan(new_node, prev_node) * self._cost_tile + self._GetBridgeNumSlopes(new_node, prev_node) * self._cost_slope;
 	}
 	if (AITunnel.IsTunnelTile(new_node)) {
 		if (AITunnel.GetOtherTunnelEnd(new_node) != prev_node) return path.GetCost() + self._cost_tile;
-		return path.GetCost() + AIMap.DistanceManhattan(new_node, prev_node) * self._cost_tunnel_per_tile;
+		return path.GetCost() + AIMap.DistanceManhattan(new_node, prev_node) * self._cost_tile;
+	}
+
+	/* If the two tiles are more then 1 tile apart, the pathfinder wants a bridge or tunnel
+	 * to be build. It isn't an existing bridge / tunnel, as that case is already handled. */
+	if (AIMap.DistanceManhattan(new_node, prev_node) > 1) {
+		/* Check if we should build a bridge or a tunnel. */
+		if (AITunnel.GetOtherTunnelEnd(new_node) == prev_node) {
+			return path.GetCost() + AIMap.DistanceManhattan(new_node, prev_node) * (self._cost_tile + self._cost_tunnel_per_tile);
+		} else {
+			return path.GetCost() + AIMap.DistanceManhattan(new_node, prev_node) * (self._cost_tile + self._cost_bridge_per_tile) + self._GetBridgeNumSlopes(new_node, prev_node) * self._cost_slope;
+		}
 	}
 
 	/* Check for a turn. We do this by substracting the TileID of the current node from
 	 * the TileID of the previous node and comparing that to the difference between the
 	 * previous node and the node before that. */
-
 	local cost = self._cost_tile;
-	if (path.GetParent() != null && (prev_node - path.GetParent().GetNode()) != (new_node - prev_node)) {
+	if (path.GetParent() != null && (prev_node - path.GetParent().GetNode()) != (new_node - prev_node) &&
+		AIMap.DistanceManhattan(path.GetParent().GetNode(), prev_node) == 1) {
 		cost += self._cost_turn;
 	}
+
 	/* Check if the new tile is a coast tile. */
 	if (AITile.IsCoastTile(new_node)) {
 		cost += self._cost_coast;
 	}
+
 	/* Check if the last tile was sloped. */
-	if (path.GetParent() != null && !AIBridge.IsBridgeTile(path.GetNode()) && !AITunnel.IsTunnelTile(path.GetNode()) &&
-	    self._IsSlopedRoad(path.GetParent().GetNode(), path.GetNode(), new_node)) {
+	if (path.GetParent() != null && !AIBridge.IsBridgeTile(prev_node) && !AITunnel.IsTunnelTile(prev_node) &&
+	    self._IsSlopedRoad(path.GetParent().GetNode(), prev_node, new_node)) {
 		cost += self._cost_slope;
 	}
+
 	if (!AIRoad.AreRoadTilesConnected(prev_node, new_node)) {
 		cost += self._cost_no_existing_road;
 	}
+
 	return path.GetCost() + cost;
 }
 
@@ -165,7 +207,7 @@ function Road::_Estimate(cur_tile, goal_tiles, self)
 	/* As estimate we multiply the lowest possible cost for a single tile with
 	 * with the minimum number of tiles we need to traverse. */
 	foreach (tile in goal_tiles) {
-		min_cost = min(AIMap.DistanceManhattan(cur_tile, tile) * self._lowest_cost, min_cost);
+		min_cost = min(AIMap.DistanceManhattan(cur_tile, tile) * self._cost_tile, min_cost);
 	}
 	return min_cost;
 }
@@ -176,28 +218,20 @@ function Road::_Neighbours(path, cur_node, self)
 	if (path.GetCost() >= self._max_cost) return [];
 	local tiles = [];
 
-	/* Check if the current tile is part of a bridge or tunnel */
+	/* Check if the current tile is part of a bridge or tunnel. */
 	if ((AIBridge.IsBridgeTile(cur_node) || AITunnel.IsTunnelTile(cur_node)) &&
 	     AITile.HasTransportType(cur_node, AITile.TRANSPORT_ROAD)) {
 		local other_end = AIBridge.IsBridgeTile(cur_node) ? AIBridge.GetOtherBridgeEnd(cur_node) : AITunnel.GetOtherTunnelEnd(cur_node);
 		/* The other end of the bridge / tunnel is a neighbour. */
 		tiles.push(other_end);
-		local next_tile = null;
-		if (other_end < cur_node) {
-			if (other_end <= cur_node - AIMap.GetMapSizeX()) {
-				next_tile = cur_node + AIMap.GetMapSizeX();
-			} else {
-				next_tile = cur_node + 1;
-			}
-		} else {
-			if (other_end >= cur_node + AIMap.GetMapSizeX()) {
-				next_tile = cur_node - AIMap.GetMapSizeX();
-			} else {
-				next_tile = cur_node - 1;
-			}
+		local next_tile = cur_node + (cur_node - other_end) / AIMap.DistanceManhattan(cur_node, other_end);
+		if (AIRoad.AreRoadTilesConnected(cur_node, next_tile) || AITile.IsBuildable(next_tile) || AIRoad.IsRoadTile(next_tile)) {
+			tiles.push(next_tile);
 		}
-		if (AIRoad.AreRoadTilesConnected(cur_node, next_tile) || AITile.IsBuildable(next_tile) ||
-				AIRoad.IsRoadTile(next_tile)) {
+	} else if (path.GetParent() != null && AIMap.DistanceManhattan(cur_node, path.GetParent().GetNode()) > 1) {
+		local other_end = path.GetParent().GetNode();
+		local next_tile = cur_node + (cur_node - other_end) / AIMap.DistanceManhattan(cur_node, other_end);
+		if (AIRoad.AreRoadTilesConnected(cur_node, next_tile) || AIRoad.BuildRoad(cur_node, next_tile)) {
 			tiles.push(next_tile);
 		}
 	} else {
@@ -213,12 +247,52 @@ function Road::_Neighbours(path, cur_node, self)
 			if (AIRoad.AreRoadTilesConnected(cur_node, next_tile)) {
 				tiles.push(next_tile);
 			} else if ((AITile.IsBuildable(next_tile) || AIRoad.IsRoadTile(next_tile)) &&
-					(path.GetParent() == null || self._CheckSlopes(path.GetParent().GetNode(), cur_node, next_tile))) {
+					(path.GetParent() == null || AIRoad.CanBuildConnectedRoadPartsHere(cur_node, path.GetParent().GetNode(), next_tile)) &&
+					AIRoad.BuildRoad(cur_node, next_tile)) {
 				tiles.push(next_tile);
 			} else if (self._CheckTunnelBridge(cur_node, next_tile)) {
 				tiles.push(next_tile);
 			}
 		}
+		if (path.GetParent() != null) {
+			local bridges = self._GetTunnelsBridges(path.GetParent().GetNode(), cur_node);
+			foreach (tile in bridges) {
+				tiles.push(tile);
+			}
+		}
+	}
+	return tiles;
+}
+
+/**
+ * Get a list of all bridges and tunnels that can be build from the
+ * current tile. Bridges will only be build starting on non-flat tiles
+ * for performance reasons. Tunnels will only be build if no terraforming
+ * is needed on both ends.
+ */
+function Road::_GetTunnelsBridges(last_node, cur_node)
+{
+	local slope = AITile.GetSlope(cur_node);
+	if (slope == AITile.SLOPE_FLAT) return [];
+	local tiles = [];
+
+	for (local i = 2; i < this._max_bridge_length; i++) {
+		local bridge_list = AIBridgeList_Length(i + 1);
+		local target = cur_node + i * (cur_node - last_node);
+		if (!bridge_list.IsEmpty() && AIBridge.BuildBridge(AIVehicle.VEHICLE_ROAD, bridge_list.Begin(), cur_node, target)) {
+			tiles.push(target);
+		}
+	}
+
+	if (slope != AITile.SLOPE_SW && slope != AITile.SLOPE_NW && slope != AITile.SLOPE_SE && slope != AITile.SLOPE_NE) return tiles;
+	local other_tunnel_end = AITunnel.GetOtherTunnelEnd(cur_node);
+	if (!AIMap.IsValidTile(other_tunnel_end)) return tiles;
+
+	local tunnel_length = AIMap.DistanceManhattan(cur_node, other_tunnel_end);
+	local prev_tile = cur_node + (cur_node - other_tunnel_end) / tunnel_length;
+	if (AITunnel.GetOtherTunnelEnd(other_tunnel_end) == cur_node && tunnel_length >= 2 &&
+			prev_tile == last_node && tunnel_length < _max_tunnel_length && AITunnel.BuildTunnel(AIVehicle.VEHICLE_ROAD, cur_node)) {
+		tiles.push(other_tunnel_end);
 	}
 	return tiles;
 }
@@ -250,39 +324,6 @@ function Road::_IsSlopedRoad(start, middle, end)
 	if (NE && (slope == AITile.SLOPE_NE || slope == AITile.SLOPE_SW)) return true;
 
 	return false;
-}
-
-function Road::_CheckSlopes(start, middle, end)
-{
-	local NW = 0; //Set to true if we want to build a road to / from the north-west
-	local NE = 0; //Set to true if we want to build a road to / from the north-east
-	local SW = 0; //Set to true if we want to build a road to / from the south-west
-	local SE = 0; //Set to true if we want to build a road to / from the south-east
-
-	if (middle - AIMap.GetMapSizeX() == start || middle - AIMap.GetMapSizeX() == end) NW = 1;
-	if (middle - 1 == start || middle - 1 == end) NE = 1;
-	if (middle + AIMap.GetMapSizeX() == start || middle + AIMap.GetMapSizeX() == end) SE = 1;
-	if (middle + 1 == start || middle + 1 == end) SW = 1;
-
-	{
-		local test_mode = AITestMode();
-		if (!AIRoad.AreRoadTilesConnected(start, middle) && !AIRoad.BuildRoad(start, middle)) return false;
-		if (!AIRoad.AreRoadTilesConnected(middle, end) && !AIRoad.BuildRoad(middle, end)) return false;
-	}
-
-	if ((NW && SE) || (NE && SW)) return true;
-
-	local slope = AITile.GetSlope(middle);
-	if (AITile.IsSteepSlope(slope)) return false;
-
-	if (slope == AITile.SLOPE_NS || slope == AITile.SLOPE_EW) return true;
-
-	if (NW && SW && (slope == AITile.SLOPE_E || slope == AITile.SLOPE_NE || slope == AITile.SLOPE_SE)) return false;
-	if (NE && SE && (slope == AITile.SLOPE_W || slope == AITile.SLOPE_NW || slope == AITile.SLOPE_SW)) return false;
-	if (NW && NE && (slope == AITile.SLOPE_S || slope == AITile.SLOPE_SE || slope == AITile.SLOPE_SW)) return false;
-	if (SW && SE && (slope == AITile.SLOPE_N || slope == AITile.SLOPE_NE || slope == AITile.SLOPE_NW)) return false;
-
-	return true;
 }
 
 function Road::_CheckTunnelBridge(current_node, new_node)
