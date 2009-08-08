@@ -73,7 +73,7 @@ class Road
 	 * @see AyStar::FindPath()
 	 */
 	function FindPath(iterations);
-}
+};
 
 class Road.Cost
 {
@@ -117,11 +117,11 @@ class Road.Cost
 		}
 	}
 
-	function constructor(main)
+	constructor(main)
 	{
 		this._main = main;
 	}
-}
+};
 
 function Road::FindPath(iterations)
 {
@@ -231,15 +231,15 @@ function Road::_Neighbours(path, cur_node, self)
 		local other_end = AIBridge.IsBridgeTile(cur_node) ? AIBridge.GetOtherBridgeEnd(cur_node) : AITunnel.GetOtherTunnelEnd(cur_node);
 		local next_tile = cur_node + (cur_node - other_end) / AIMap.DistanceManhattan(cur_node, other_end);
 		if (AIRoad.AreRoadTilesConnected(cur_node, next_tile) || AITile.IsBuildable(next_tile) || AIRoad.IsRoadTile(next_tile)) {
-			tiles.push([next_tile, self._GetDirection(cur_node, next_tile)]);
+			tiles.push([next_tile, self._GetDirection(cur_node, next_tile, false)]);
 		}
 		/* The other end of the bridge / tunnel is a neighbour. */
-		tiles.push([other_end, self._GetDirection(next_tile, cur_node) << 4]);
+		tiles.push([other_end, self._GetDirection(next_tile, cur_node, true) << 4]);
 	} else if (path.GetParent() != null && AIMap.DistanceManhattan(cur_node, path.GetParent().GetTile()) > 1) {
 		local other_end = path.GetParent().GetTile();
 		local next_tile = cur_node + (cur_node - other_end) / AIMap.DistanceManhattan(cur_node, other_end);
 		if (AIRoad.AreRoadTilesConnected(cur_node, next_tile) || AIRoad.BuildRoad(cur_node, next_tile)) {
-			tiles.push([next_tile, self._GetDirection(cur_node, next_tile)]);
+			tiles.push([next_tile, self._GetDirection(cur_node, next_tile, false)]);
 		}
 	} else {
 		local offsets = [AIMap.GetTileIndex(0, 1), AIMap.GetTileIndex(0, -1),
@@ -252,17 +252,17 @@ function Road::_Neighbours(path, cur_node, self)
 			 * 2) We can build a road to the next tile.
 			 * 3) The next tile is the entrance of a tunnel / bridge in the correct direction. */
 			if (AIRoad.AreRoadTilesConnected(cur_node, next_tile)) {
-				tiles.push([next_tile, self._GetDirection(cur_node, next_tile)]);
+				tiles.push([next_tile, self._GetDirection(cur_node, next_tile, false)]);
 			} else if ((AITile.IsBuildable(next_tile) || AIRoad.IsRoadTile(next_tile)) &&
 					(path.GetParent() == null || AIRoad.CanBuildConnectedRoadPartsHere(cur_node, path.GetParent().GetTile(), next_tile)) &&
 					AIRoad.BuildRoad(cur_node, next_tile)) {
-				tiles.push([next_tile, self._GetDirection(cur_node, next_tile)]);
+				tiles.push([next_tile, self._GetDirection(cur_node, next_tile, false)]);
 			} else if (self._CheckTunnelBridge(cur_node, next_tile)) {
-				tiles.push([next_tile, self._GetDirection(cur_node, next_tile)]);
+				tiles.push([next_tile, self._GetDirection(cur_node, next_tile, false)]);
 			}
 		}
 		if (path.GetParent() != null) {
-			local bridges = self._GetTunnelsBridges(path.GetParent().GetTile(), cur_node, self._GetDirection(path.GetParent().GetTile(), cur_node) << 4);
+			local bridges = self._GetTunnelsBridges(path.GetParent().GetTile(), cur_node, self._GetDirection(path.GetParent().GetTile(), cur_node, true) << 4);
 			foreach (tile in bridges) {
 				tiles.push(tile);
 			}
@@ -276,8 +276,9 @@ function Road::_CheckDirection(tile, existing_direction, new_direction, self)
 	return false;
 }
 
-function Road::_GetDirection(from, to)
+function Road::_GetDirection(from, to, is_bridge)
 {
+	if (!is_bridge && AITile.GetSlope(to) == AITile.SLOPE_FLAT) return 0xFF;
 	if (from - to == 1) return 1;
 	if (from - to == -1) return 2;
 	if (from - to == AIMap.GetMapSizeX()) return 4;
@@ -299,7 +300,7 @@ function Road::_GetTunnelsBridges(last_node, cur_node, bridge_dir)
 	for (local i = 2; i < this._max_bridge_length; i++) {
 		local bridge_list = AIBridgeList_Length(i + 1);
 		local target = cur_node + i * (cur_node - last_node);
-		if (!bridge_list.IsEmpty() && AIBridge.BuildBridge(AIVehicle.VEHICLE_ROAD, bridge_list.Begin(), cur_node, target)) {
+		if (!bridge_list.IsEmpty() && AIBridge.BuildBridge(AIVehicle.VT_ROAD, bridge_list.Begin(), cur_node, target)) {
 			tiles.push([target, bridge_dir]);
 		}
 	}
@@ -311,7 +312,7 @@ function Road::_GetTunnelsBridges(last_node, cur_node, bridge_dir)
 	local tunnel_length = AIMap.DistanceManhattan(cur_node, other_tunnel_end);
 	local prev_tile = cur_node + (cur_node - other_tunnel_end) / tunnel_length;
 	if (AITunnel.GetOtherTunnelEnd(other_tunnel_end) == cur_node && tunnel_length >= 2 &&
-			prev_tile == last_node && tunnel_length < _max_tunnel_length && AITunnel.BuildTunnel(AIVehicle.VEHICLE_ROAD, cur_node)) {
+			prev_tile == last_node && tunnel_length < _max_tunnel_length && AITunnel.BuildTunnel(AIVehicle.VT_ROAD, cur_node)) {
 		tiles.push([other_tunnel_end, bridge_dir]);
 	}
 	return tiles;
