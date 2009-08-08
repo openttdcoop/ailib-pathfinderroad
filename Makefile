@@ -1,6 +1,6 @@
 # Configuration
 LIB_NAME = Queue.FibonacciHeap
-LIB_VERSION = 1
+LIB_VERSION = 3
 FILES = COPYING main.nut library.nut
 # End of configuration
 
