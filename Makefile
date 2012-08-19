@@ -1,5 +1,5 @@
 # Configuration
-LIB_NAME = Queue.FibonacciHeap
+LIB_NAME = Pathfinder.Road
 LIB_VERSION = 4
 FILES = COPYING main.nut library.nut changelog.txt
 # End of configuration
