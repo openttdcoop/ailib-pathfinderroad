@@ -12,7 +12,7 @@
  */
 class Road
 {
-	_aystar_class = import("graph.aystar", "", 4);
+	_aystar_class = import("graph.aystar", "", 6)
 	_max_cost = null;              ///< The maximum cost for a route.
 	_cost_tile = null;             ///< The cost for a single tile.
 	_cost_no_existing_road = null; ///< The cost that is added to _cost_tile if no road exists yet.
@@ -40,7 +40,7 @@ class Road
 		this._cost_coast = 20;
 		this._max_bridge_length = 10;
 		this._max_tunnel_length = 20;
-		this._pathfinder = this._aystar_class(this._Cost, this._Estimate, this._Neighbours, this._CheckDirection, this, this, this, this);
+		this._pathfinder = this._aystar_class(this, this._Cost, this._Estimate, this._Neighbours, this._CheckDirection);
 
 		this.cost = this.Cost(this);
 		this._running = false;
@@ -152,7 +152,7 @@ function Road::_GetBridgeNumSlopes(end_a, end_b)
 	return slopes;
 }
 
-function Road::_Cost(path, new_tile, new_direction, self)
+function Road::_Cost(self, path, new_tile, new_direction)
 {
 	/* path == null means this is the first node of a path, so the cost is 0. */
 	if (path == null) return 0;
@@ -208,7 +208,7 @@ function Road::_Cost(path, new_tile, new_direction, self)
 	return path.GetCost() + cost;
 }
 
-function Road::_Estimate(cur_tile, cur_direction, goal_tiles, self)
+function Road::_Estimate(self, cur_tile, cur_direction, goal_tiles)
 {
 	local min_cost = self._max_cost;
 	/* As estimate we multiply the lowest possible cost for a single tile with
@@ -219,7 +219,7 @@ function Road::_Estimate(cur_tile, cur_direction, goal_tiles, self)
 	return min_cost;
 }
 
-function Road::_Neighbours(path, cur_node, self)
+function Road::_Neighbours(self, path, cur_node)
 {
 	/* self._max_cost is the maximum path cost, if we go over it, the path isn't valid. */
 	if (path.GetCost() >= self._max_cost) return [];
@@ -271,7 +271,7 @@ function Road::_Neighbours(path, cur_node, self)
 	return tiles;
 }
 
-function Road::_CheckDirection(tile, existing_direction, new_direction, self)
+function Road::_CheckDirection(self, tile, existing_direction, new_direction)
 {
 	return false;
 }
