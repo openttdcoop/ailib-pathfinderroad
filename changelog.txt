@@ -1,0 +1,13 @@
+
+2012-08-19 - Version 4
+
+- Change: Road Pathfinder now uses AyStar 6 instead of AyStar 4.
+
+      => The AyStar callback functions, _Cost, _Estimate, _Neighbours and
+	     _CheckDirection have all changed their argument order. The self
+		 parameter have changed from last to first as a consequence of using
+		 AyStar 6 instead of 4.
+
+
+2008-06-18 - version 3
+

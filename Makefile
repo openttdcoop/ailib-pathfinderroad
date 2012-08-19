@@ -1,7 +1,7 @@
 # Configuration
 LIB_NAME = Queue.FibonacciHeap
 LIB_VERSION = 4
-FILES = COPYING main.nut library.nut
+FILES = COPYING main.nut library.nut changelog.txt
 # End of configuration
 
 NAME_VERSION = $(LIB_NAME).$(LIB_VERSION)
