@@ -8,8 +8,8 @@ class Road extends AILibrary {
 	function GetName()        { return "Road"; }
 	function GetShortName()   { return "PFRO"; }
 	function GetDescription() { return "An implementation of a road pathfinder"; }
-	function GetVersion()     { return 4; }
-	function GetDate()        { return "2012-08-19"; }
+	function GetVersion()     { return 5; }
+	function GetDate()        { return "2020-04-03"; }
 	function CreateInstance() { return "Road"; }
 	function GetCategory()    { return "Pathfinder"; }
 }

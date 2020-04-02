@@ -1,6 +1,6 @@
 # Configuration
 LIB_NAME = Pathfinder.Road
-LIB_VERSION = 4
+LIB_VERSION = 5
 FILES = COPYING main.nut library.nut changelog.txt
 # End of configuration
 
